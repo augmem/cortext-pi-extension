@@ -224,7 +224,7 @@ nonsense-token needle a model can't guess — is asserted by
 Every release passes, against a real `pi` 0.84.2 installation and the
 shipped engine, before publish:
 
-- **Unit + types** — `npm run typecheck` and `npm test` (70 tests, native
+- **Unit + types** — `npm run typecheck` and `npm test` (82 tests, native
   engine, offline): config resolution, store/scope-key determinism, engine
   ingest/recall/consolidate, compaction cut logic (exchange alignment,
   previous-boundary floor, fallback), stream-gate segmentation/staging,
