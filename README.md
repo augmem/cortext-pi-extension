@@ -34,8 +34,8 @@ cd ~/.pi/agent/extensions/cortext && npm install && npm run build
 - **Compaction with zero LLM calls.** Pi's native compaction pays a
   summarizer every time the window fills and hopes the summary kept what
   you'll need. Cortext compaction just moves a window: the extension returns
-  its own `CompactionEntry` (bridge note + exchange-aligned cut, `fromExtension:
-  true`) and **no summarizer LLM call is made** — verified live (the compaction
+  its own `CompactionEntry` (bridge note + exchange-aligned cut, `fromHook: true`)
+  and **no summarizer LLM call is made** — verified live (the compaction
   response carries no `usage`). Archived content comes back through
   query-relevant recall every turn.
 - **Measured, not vibes.** The live bench ([`bench/live.mjs`](bench/live.mjs))
@@ -228,7 +228,7 @@ shipped engine, before publish:
   `CORTEX_PI_CONFIG` dbPath — which also proves the env config path) and
   asserts, per control:
   - **compaction-zero** — `compact` yields an extension-provided
-    `CompactionEntry` (`details.engine="cortext"`, `fromExtension: true`)
+    `CompactionEntry` (`details.engine="cortext"`, `fromHook: true`)
     with **no `usage`** (zero summarizer LLM calls)
   - **compaction-window** — the needle entry is provably before
     `firstKeptEntryId` on the branch (archived, exchange-aligned cut)
