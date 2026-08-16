@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+- Config boundary now type-validates every field with per-field default
+  fallback.
+- Engine-open failure degrades the affected scope to recall-less passthrough
+  with a first-failure log line; the agent keeps running.
+- OTEL spans on control/failure paths via `@opentelemetry/api` (no-op
+  without a collector); span attributes are bounded enums/numbers only.
+- Owned multi-arg and boolean signatures converted to named-options objects.
+- NOTICE rewritten for the actual npm distribution (one runtime dependency,
+  `@augmem/cortext`; no vendored third-party code).
+- README documents the `fromHook` CompactionEntry field and the
+  engine-open failure / telemetry behavior.
+- `npm test` build-reproducibility gate (`npm run build:verify`) and a
+  GitHub Actions CI workflow (typecheck, full test chain, `npm audit`).
+
 ## 0.1.0
 
 - Initial release: port of the Cortext OpenClaw plugin to the pi coding agent
