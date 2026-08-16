@@ -114,10 +114,6 @@ export class CortextStore {
     return engine;
   }
 
-  for(ids: ScopeIds): CortextEngine {
-    return this.forScope(this.scopeKey(ids));
-  }
-
   /** The on-disk directory holding this store's scope databases. safe()
    *  permits dots, so "."/".." are rejected — dbPath must stay under baseDir. */
   storeDir(): string {
