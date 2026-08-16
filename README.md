@@ -140,6 +140,9 @@ pi has no per-extension config surface (verified against the installed
 3. defaults (a malformed source is skipped, never fatal: memory must not
    break the agent)
 
+Resolution happens once when the extension registers — there is no config
+watching; restart pi to apply changes.
+
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `dbPath` | `cortext` | Directory (under `~/.pi/agent/cortext`) for stores |
