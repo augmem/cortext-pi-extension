@@ -130,11 +130,12 @@ export class CortextStore {
 
 /** Deterministic project identity from a cwd: the basename (openclaw
  *  normalized agent ids to "main" when absent; we do the same for an empty
- *  or root cwd). */
+ *  or root cwd). Both separators: a Windows cwd ("C:\\Users\\me\\proj") must
+ *  yield the real basename, not the whole backslashed path. */
 function projectFromCwd(cwd?: string): string {
   if (!cwd) return "main";
-  const base = cwd.split("/").filter(Boolean).pop();
-  return base && base !== "/" ? base : "main";
+  const base = cwd.split(/[\\/]/).filter(Boolean).pop();
+  return base ? base : "main";
 }
 
 export function memoryText(item: CortextMemory): string {

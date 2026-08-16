@@ -42,6 +42,13 @@ test("agent scope: two projects with the same basename share a store (documented
   );
 });
 
+test("agent scope: Windows cwd paths yield the real basename (both separators)", () => {
+  const s = store(AGENT_SCOPE);
+  const winKey = s.scopeKey({ cwd: "C:\\Users\\gab\\proj-win" });
+  assert.equal(winKey, s.scopeKey({ cwd: "/tmp/proj-win" }), "backslashed cwd resolves to the same basename");
+  assert.notEqual(winKey, s.scopeKey({ cwd: "/tmp/other" }), "distinct basenames stay distinct");
+});
+
 test("global scope: one shared store regardless of ids", () => {
   const s = store(GLOBAL_SCOPE);
   assert.equal(s.scopeKey({ sessionId: "A", cwd: "/x" }), s.scopeKey({ sessionId: "B", cwd: "/y" }));
