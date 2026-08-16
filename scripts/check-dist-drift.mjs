@@ -75,6 +75,9 @@ try {
   walkEmit(outDir);
   walkDist(distDir);
 } catch (err) {
+  if (err && err.stderr && String(err.stderr).trim() !== "") {
+    console.error(String(err.stderr));
+  }
   console.error("check-dist-drift: fresh build failed:", err.message);
   process.exit(1);
 } finally {
