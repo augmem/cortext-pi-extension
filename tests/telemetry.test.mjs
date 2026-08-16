@@ -27,7 +27,7 @@ test("telemetry: every operation span opens and closes without an SDK", () => {
     startSpan({ name: SPANS.gate, attributes: { stream: "thinking", kind: "interrupt", stagedCount: 2 } }),
   ];
   assert.doesNotThrow(() => {
-    for (const s of spans) endSpan({ s, outcome: OUTCOME.ok });
+    for (const s of spans) endSpan({ span: s, outcome: OUTCOME.ok });
     recordFailure({ name: SPANS.engineCreate });
     recordFailure({ name: SPANS.engineFlush });
     recordFailure({ name: SPANS.recall, attributes: { surface: SURFACES.gate } });
