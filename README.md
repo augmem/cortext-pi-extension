@@ -208,6 +208,16 @@ nonsense-token needle a model can't guess — is asserted by
   re-window on every assembly the way the openclaw context engine did. The
   per-LLM-call recall surface compensates: once windowed, the working-memory
   snapshot rides along with every recall call.
+- **An engine that can't open degrades its scope, not the agent.** If the
+  native store cannot be opened for a scope (missing store dir, corrupt DB
+  file, binding rejection), that scope degrades to recall-less passthrough
+  with a one-time `cortext store error` log line per scope — the agent keeps
+  running and memory for that scope is off until the store opens.
+- **Telemetry is spans only, and fully offline.** Control and failure paths
+  emit OpenTelemetry spans via `@opentelemetry/api` (a no-op proxy when no
+  collector/SDK is present), so the extension stays fully offline with no
+  per-turn network and no new diagnostics dependencies beyond the OTEL API;
+  span attributes are bounded enums/numbers only.
 
 ## Verified
 
