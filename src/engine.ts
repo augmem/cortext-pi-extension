@@ -184,6 +184,7 @@ export class CortextHandlers {
     if (!text.trim()) return;
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
+    if (!engine) return; // degraded scope: skip ingest (no throw)
     // Consolidation happens at compaction only (autoConsolidate); the engine's
     // throughput hint is deliberately not acted on at ingest (openclaw parity:
     // measured retrieval is identical with or without it).
@@ -199,6 +200,7 @@ export class CortextHandlers {
   onBeforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): BeforeAgentStartEventResult | undefined {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
+    if (!engine) return; // degraded scope: recall-less passthrough (no throw)
     const query = (event.prompt ?? "").trim();
     const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/assemble` }) : null;
     const recalled = recalledCtx ? formatMemories({ items: recalledCtx.retrieved_memory, limit: this.cfg.recallLimit }) : "";
@@ -221,6 +223,7 @@ export class CortextHandlers {
   onContext(event: ContextEvent, ctx: ExtensionContext): ContextEventResult | undefined {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
+    if (!engine) return; // degraded scope: recall-less passthrough (no throw)
     const query = latestUserText(event.messages).trim();
     const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/context` }) : null;
     let excluded = this.sysLines.get(scopeKey);
@@ -265,6 +268,7 @@ export class CortextHandlers {
   onSessionBeforeCompact(event: SessionBeforeCompactEvent, ctx: ExtensionContext): SessionBeforeCompactResult | undefined {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
+    if (!engine) return; // degraded scope: pi's default compaction applies
     if (this.cfg.autoConsolidate) engine.consolidate();
     engine.flush();
 

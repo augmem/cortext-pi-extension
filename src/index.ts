@@ -31,7 +31,7 @@ export function register(pi: ExtensionAPI): void {
   const bus = new InterruptBus();
   // One SQLite store per isolation scope under the pi agent dir, mirroring
   // openclaw's agent-dir layout (~/.openclaw/cortext -> ~/.pi/agent/cortext).
-  const store = new CortextStore({ cfg, baseDir: join(homedir(), ".pi", "agent", "cortext") });
+  const store = new CortextStore({ cfg, baseDir: join(homedir(), ".pi", "agent", "cortext"), log });
   const handlers = new CortextHandlers({ store, bus, log, cfg });
 
   pi.on("session_start", (event, ctx) => handlers.onSessionStart(event, ctx));

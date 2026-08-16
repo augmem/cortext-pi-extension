@@ -17,7 +17,7 @@ const INTERRUPT_GATE_OFF = false;
  *  temp-dir store — the same classes register() wires, minus the pi API. */
 function build({ baseDir, cfg = {} }) {
   const config = resolveConfig(cfg).config;
-  const store = new CortextStore({ cfg: config, baseDir });
+  const store = new CortextStore({ cfg: config, baseDir, log: silentLog });
   const bus = new InterruptBus();
   const handlers = new CortextHandlers({ store, bus, log: silentLog, cfg: config });
   return { store, bus, handlers, cfg: config };

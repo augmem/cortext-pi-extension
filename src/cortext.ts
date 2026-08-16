@@ -16,6 +16,8 @@ export class CortextEngine {
 
   constructor(options: { dbPath: string; cfg: CortextPluginConfig }) {
     this.cfg = options.cfg;
+    // May throw (native open failure, e.g. the store path is a directory):
+    // the caller (CortextStore.forScope) owns the degradation decision.
     this.engine = new Cortext(
       { focus: options.cfg.focus, sensitivity: options.cfg.sensitivity, stability: options.cfg.stability },
       options.dbPath,
@@ -71,11 +73,17 @@ const MAX_ENGINES = 64;
 export class CortextStore {
   private readonly cfg: CortextPluginConfig;
   private engines = new Map<string, CortextEngine>(); // insertion order == LRU
+  /** Scope keys whose engine creation failed. Creation is deterministic per
+   *  key (same file path), so a failed key never recovers — the set is never
+   *  cleared, which is also what keeps the first-failure log one-shot. */
+  private failedScopes = new Set<string>();
   private baseDir: string;
+  private readonly log: (line: string) => void;
 
-  constructor(options: { cfg: CortextPluginConfig; baseDir: string }) {
+  constructor(options: { cfg: CortextPluginConfig; baseDir: string; log: (line: string) => void }) {
     this.cfg = options.cfg;
     this.baseDir = options.baseDir;
+    this.log = options.log;
   }
 
   /**
@@ -95,14 +103,31 @@ export class CortextStore {
     return "a-" + safe(projectFromCwd(ids.cwd));
   }
 
-  forScope(key: string): CortextEngine {
+  /**
+   * Resolve (creating on first use) the engine for a scope key.
+   * Returns null when creation failed — the scope is permanently degraded
+   * and callers degrade to recall-less/ingest-less passthrough (no throw).
+   * The first failure per key is logged once; repeats stay quiet.
+   */
+  forScope(key: string): CortextEngine | null {
     const existing = this.engines.get(key);
     if (existing) {
       this.engines.delete(key); // bump to most-recently-used
       this.engines.set(key, existing);
       return existing;
     }
-    const engine = new CortextEngine({ dbPath: join(this.storeDir(), `${key}.sqlite`), cfg: this.cfg });
+    if (this.failedScopes.has(key)) return null;
+    let engine: CortextEngine;
+    try {
+      engine = new CortextEngine({ dbPath: join(this.storeDir(), `${key}.sqlite`), cfg: this.cfg });
+    } catch (err) {
+      // Distinct prefix: must never match "cortext gate error" or
+      // "cortext interrupt gate:" (a store failure must not read as a gate
+      // fire or a gate crash in the logs).
+      this.log(`cortext store error: ${String(err)} (scope key ${key})`);
+      this.failedScopes.add(key);
+      return null;
+    }
     this.engines.set(key, engine);
     while (this.engines.size > MAX_ENGINES) {
       const oldest = this.engines.keys().next().value;

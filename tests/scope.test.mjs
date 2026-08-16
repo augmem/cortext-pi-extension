@@ -2,13 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CortextStore } from "../dist/cortext.js";
 import { resolveConfig } from "../dist/config.js";
+import { silentLog } from "./helpers.mjs";
 
 // Enum values (named per LOCAL-ARG-001).
 const SESSION_SCOPE = "session";
 const AGENT_SCOPE = "agent";
 const GLOBAL_SCOPE = "global";
 
-const store = (scope) => new CortextStore({ cfg: resolveConfig({ memoryScope: scope }).config, baseDir: "/tmp/x" });
+const store = (scope) => new CortextStore({ cfg: resolveConfig({ memoryScope: scope }).config, baseDir: "/tmp/x", log: silentLog });
 
 test("session scope: distinct session ids give distinct stores (no collapse)", () => {
   const s = store(SESSION_SCOPE);

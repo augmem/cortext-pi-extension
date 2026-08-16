@@ -88,11 +88,26 @@ test("non-delta stream events and non-assistant messages are ignored safely", ()
 test("gate errors never throw out of the handler (log prefix stays distinct)", () => {
   const logs = [];
   const log = (line) => logs.push(line);
-  const badStore = { scopeKey: () => { throw new Error("boom"); }, forScope: () => {} };
+  // The engine exists but its recall throws: a handler crash, which must be
+  // logged with the distinct prefix (a degraded scope — forScope -> null —
+  // is NOT an error; see the test below).
+  const badStore = { scopeKey: () => { throw new Error("boom"); }, forScope: () => ({ recall: () => { throw new Error("recall exploded"); } }) };
   const g = gate({ store: badStore, bus: new InterruptBus(), log });
   const msg = at({ text: "answer" });
   g.onMessageStart(msg);
   assert.doesNotThrow(() => g.onMessageUpdate(msg, text("a segment long enough to trigger a recall call that will surface an error from the fake store, and it must be logged rather than thrown outward.")));
   assert.ok(logs.some((l) => l.startsWith("cortext gate error:")), "error logged with the distinct prefix");
   assert.ok(!logs.some((l) => l.startsWith("cortext interrupt gate:")), "no fire log for a crashed handler");
+});
+
+test("a degraded scope (forScope -> null) is skipped without error or throw", () => {
+  const bus = new InterruptBus();
+  const logs = [];
+  const nullStore = { scopeKey: () => "s-dead", forScope: () => null };
+  const g = gate({ store: nullStore, bus, log: (line) => logs.push(line) });
+  const msg = at({ text: "answer" });
+  g.onMessageStart(msg);
+  assert.doesNotThrow(() => g.onMessageUpdate(msg, text("a segment long enough to flush into the gate where the store has no engine for the scope, which must degrade silently.")));
+  assert.equal(bus.take("s-dead"), "", "nothing staged from a degraded scope");
+  assert.ok(!logs.some((l) => l.startsWith("cortext gate error:")), "degradation is not an error log");
 });

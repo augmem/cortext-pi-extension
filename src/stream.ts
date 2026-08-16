@@ -117,6 +117,7 @@ export class InterruptGate {
     const scopeKey = this.scopeKeyProvider();
     if (!scopeKey) return;
     const engine = this.store.forScope(scopeKey);
+    if (!engine) return; // degraded scope: no recall, no throw
     const ctx = engine.recall({ text: segment, sourceId: `pi/agent/${safe(scopeKey)}/stream/${stream}` });
     if (!ctx) return;
 

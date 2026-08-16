@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import {
+  CortextStore,
   memoryText,
   formatMemories,
   formatMemoriesExcluding,
@@ -9,6 +12,8 @@ import {
   dedupeAgainstWindow,
 } from "../dist/cortext.js";
 import { messageText, messageTextOf } from "../dist/engine.js";
+import { resolveConfig } from "../dist/config.js";
+import { tempDir } from "./helpers.mjs";
 
 const b64 = (s) => Buffer.from(s, "utf-8").toString("base64");
 
@@ -116,4 +121,47 @@ test("messageTextOf dispatches on role", () => {
     "out",
   );
   assert.equal(messageTextOf(undefined), "");
+});
+
+// -- C2: engine-creation failure contract ---------------------------------------
+
+test("forScope returns null and logs exactly once when engine creation fails", () => {
+  const { dir, cleanup } = tempDir();
+  try {
+    const logs = [];
+    const log = (line) => logs.push(line);
+    const store = new CortextStore({ cfg: resolveConfig({}).config, baseDir: dir, log });
+    // Force the native open to fail: pre-create a DIRECTORY at the store's
+    // file path (default dbPath "cortext" -> <dir>/cortext/<key>.sqlite).
+    const key = store.scopeKey({ sessionId: "BROKEN" });
+    assert.equal(key, "s-BROKEN");
+    mkdirSync(join(dir, "cortext", `${key}.sqlite`), { recursive: true });
+
+    assert.equal(store.forScope(key), null, "degraded scope resolves to null, not a throw");
+    assert.equal(logs.length, 1, "first failure is logged");
+    assert.match(logs[0], /^cortext store error: .+ \(scope key s-BROKEN\)$/);
+    // Distinct prefix: must not read as a gate crash or a gate fire.
+    assert.ok(!logs[0].startsWith("cortext gate error"));
+    assert.ok(!logs[0].startsWith("cortext interrupt gate:"));
+
+    assert.equal(store.forScope(key), null, "stays null on retry");
+    store.forScope(key);
+    store.forScope(key);
+    assert.equal(logs.length, 1, "repeated failures stay quiet (no log spam)");
+  } finally { cleanup(); }
+});
+
+test("forScope still returns the healthy engine after a sibling scope fails", () => {
+  const { dir, cleanup } = tempDir();
+  try {
+    const logs = [];
+    const store = new CortextStore({ cfg: resolveConfig({}).config, baseDir: dir, log: (line) => logs.push(line) });
+    const brokenKey = store.scopeKey({ sessionId: "BROKEN" });
+    const healthyKey = store.scopeKey({ sessionId: "OK" });
+    mkdirSync(join(dir, "cortext", `${brokenKey}.sqlite`), { recursive: true });
+    assert.equal(store.forScope(brokenKey), null);
+    const healthy = store.forScope(healthyKey);
+    assert.ok(healthy, "a healthy scope is unaffected by a broken sibling");
+    assert.equal(store.forScope(healthyKey), healthy, "healthy scope stays cached");
+  } finally { cleanup(); }
 });
