@@ -1,0 +1,63 @@
+{
+  "name": "@augmem/cortext-pi-extension",
+  "version": "0.1.0",
+  "description": "Cortext memory for the pi coding agent: per-session-isolated durable memory, live per-turn recall, zero-LLM-call compaction, and a streaming interrupt gate.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/augmem/cortext-pi-extension.git"
+  },
+  "homepage": "https://github.com/augmem/cortext-pi-extension#readme",
+  "bugs": {
+    "url": "https://github.com/augmem/cortext-pi-extension/issues"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs && node scripts/verify-entry.mjs",
+    "test:unit": "npm run build && node --test tests/*.test.mjs",
+    "test:integration": "npm run build && node bench/live.mjs",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@augmem/cortext": "^1.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "pi-extension",
+    "memory",
+    "cortext",
+    "compaction"
+  ]
+}
