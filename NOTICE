@@ -4,13 +4,15 @@
 This npm package is licensed under the Apache License, Version 2.0; see
 `LICENSE` for the full text.
 
-Runtime dependency
-------------------
+Runtime dependencies
+--------------------
 
-The package has exactly one runtime dependency:
+The package has two runtime dependencies:
 
 * `@augmem/cortext` — Apache-2.0. Its own NOTICE and LICENSE ship inside
   that dependency's npm tarball and cover the code installed from it.
+* `@opentelemetry/api` — Apache-2.0. Its own LICENSE ships inside that
+  dependency's npm tarball and covers the code installed from it.
 
 Development-only dependencies (`typescript`, `@types/node`) are used to
 build the package and are not shipped in the published tarball.

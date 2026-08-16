@@ -11,8 +11,8 @@ All notable changes to this project are documented here.
 - OTEL spans on control/failure paths via `@opentelemetry/api` (no-op
   without a collector); span attributes are bounded enums/numbers only.
 - Owned multi-arg and boolean signatures converted to named-options objects.
-- NOTICE rewritten for the actual npm distribution (one runtime dependency,
-  `@augmem/cortext`; no vendored third-party code).
+- NOTICE rewritten for the actual npm distribution (two runtime dependencies,
+  `@augmem/cortext` and `@opentelemetry/api`; no vendored third-party code).
 - README documents the `fromHook` CompactionEntry field and the
   engine-open failure / telemetry behavior.
 - `npm test` build-reproducibility gate (`npm run build:verify`) and a
