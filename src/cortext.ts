@@ -14,33 +14,33 @@ export class CortextEngine {
   readonly cfg: CortextPluginConfig;
   private engine: CortextHandle;
 
-  constructor(dbPath: string, cfg: CortextPluginConfig) {
-    this.cfg = cfg;
+  constructor(options: { dbPath: string; cfg: CortextPluginConfig }) {
+    this.cfg = options.cfg;
     this.engine = new Cortext(
-      { focus: cfg.focus, sensitivity: cfg.sensitivity, stability: cfg.stability },
-      dbPath,
+      { focus: options.cfg.focus, sensitivity: options.cfg.sensitivity, stability: options.cfg.stability },
+      options.dbPath,
     );
   }
 
-  ingest(text: string, sourceId: string): CortextContext | null {
-    const trimmed = text.trim();
+  ingest(options: { text: string; sourceId: string }): CortextContext | null {
+    const trimmed = options.text.trim();
     if (!trimmed) return null;
     try {
       // Durable processText commits on its own: the write is immediately
       // visible to recall, even from a fresh handle on the same DB (verified
       // empirically against @augmem/cortext 1.2.0). No per-message flush;
       // flush() remains only at deliberate checkpoints (compact/shutdown).
-      return this.engine.processText(trimmed, sourceId, { retention: "durable" });
+      return this.engine.processText(trimmed, options.sourceId, { retention: "durable" });
     } catch {
       return null;
     }
   }
 
-  recall(text: string, sourceId: string): CortextContext | null {
-    const trimmed = text.trim();
+  recall(options: { text: string; sourceId: string }): CortextContext | null {
+    const trimmed = options.text.trim();
     if (!trimmed) return null;
     try {
-      return this.engine.processText(trimmed, sourceId, { retention: "ephemeral" });
+      return this.engine.processText(trimmed, options.sourceId, { retention: "ephemeral" });
     } catch {
       return null;
     }
@@ -69,11 +69,13 @@ export interface ScopeIds {
 const MAX_ENGINES = 64;
 
 export class CortextStore {
+  private readonly cfg: CortextPluginConfig;
   private engines = new Map<string, CortextEngine>(); // insertion order == LRU
   private baseDir: string;
 
-  constructor(private readonly cfg: CortextPluginConfig, baseDir: string) {
-    this.baseDir = baseDir;
+  constructor(options: { cfg: CortextPluginConfig; baseDir: string }) {
+    this.cfg = options.cfg;
+    this.baseDir = options.baseDir;
   }
 
   /**
@@ -100,7 +102,7 @@ export class CortextStore {
       this.engines.set(key, existing);
       return existing;
     }
-    const engine = new CortextEngine(join(this.storeDir(), `${key}.sqlite`), this.cfg);
+    const engine = new CortextEngine({ dbPath: join(this.storeDir(), `${key}.sqlite`), cfg: this.cfg });
     this.engines.set(key, engine);
     while (this.engines.size > MAX_ENGINES) {
       const oldest = this.engines.keys().next().value;
@@ -180,10 +182,11 @@ function neutralize(text: string): string {
  * injecting them again would only spend prompt budget on duplicates. Used for
  * the working-memory snapshot, which overlaps the tail on long conversations.
  */
-export function dedupeAgainstWindow(
-  items: CortextMemory[] | undefined,
-  windowTexts: string[],
-): CortextMemory[] {
+export function dedupeAgainstWindow(options: {
+  items: CortextMemory[] | undefined;
+  windowTexts: string[];
+}): CortextMemory[] {
+  const { items, windowTexts } = options;
   if (!items?.length) return [];
   return items.filter((item) => {
     const text = memoryText(item);
@@ -191,7 +194,11 @@ export function dedupeAgainstWindow(
   });
 }
 
-export function formatMemories(items: CortextMemory[] | undefined, limit: number): string {
+export function formatMemories(options: {
+  items: CortextMemory[] | undefined;
+  limit: number;
+}): string {
+  const { items, limit } = options;
   if (!items?.length) return "";
   const lines: string[] = [];
   for (const item of items) {
@@ -205,11 +212,12 @@ export function formatMemories(items: CortextMemory[] | undefined, limit: number
 /** Like formatMemories, but skips lines already present in `excluded` (the
  *  memory the system-prompt surface already injected this run) so the
  *  per-LLM-call surface never double-injects the same text. */
-export function formatMemoriesExcluding(
-  items: CortextMemory[] | undefined,
-  limit: number,
-  excluded?: ReadonlySet<string>,
-): string {
+export function formatMemoriesExcluding(options: {
+  items: CortextMemory[] | undefined;
+  limit: number;
+  excluded?: ReadonlySet<string>;
+}): string {
+  const { items, limit, excluded } = options;
   if (!items?.length) return "";
   const lines: string[] = [];
   for (const item of items) {

@@ -42,12 +42,13 @@ export function messageRoleOf(entry: SessionEntry): string {
  * lands earlier. Returns null when no user boundary exists in range — the
  * caller falls back to pi's own validated cut.
  */
-export function chooseCut(
-  entries: SessionEntry[],
-  boundaryStart: number,
-  mode: CompactionMode,
-  protectTail: number,
-): CutResult | null {
+export function chooseCut(options: {
+  entries: SessionEntry[];
+  boundaryStart: number;
+  mode: CompactionMode;
+  protectTail: number;
+}): CutResult | null {
+  const { entries, boundaryStart, mode, protectTail } = options;
   const msgIndices: number[] = [];
   for (let i = boundaryStart; i < entries.length; i++) {
     if (entries[i]!.type === "message") msgIndices.push(i);
@@ -138,7 +139,8 @@ export function messageTextLen(message: AgentMessage | undefined): number {
  * as "compacted into the following summary"). No LLM call produced it — the
  * content lives in the durable store and comes back through per-turn recall.
  */
-export function bridgeSummary(mode: CompactionMode, dropped: number): string {
+export function bridgeSummary(options: { mode: CompactionMode; dropped: number }): string {
+  const { mode, dropped } = options;
   const wm = mode === "full" ? " and its working-memory snapshot" : "";
   return (
     `Archived ${dropped} message(s) to Cortext durable memory ` +

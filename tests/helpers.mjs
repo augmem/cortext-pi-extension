@@ -57,23 +57,25 @@ export function fakeCtx({ sessionId = "S", cwd = "/tmp/proj", sessionFile = unde
 }
 
 // -- message constructors (real pi shapes) -----------------------------------
+// Named fields (LOCAL-ARG-001): every helper that takes more than one
+// argument or a boolean takes a single options object.
 
-export const u = (content, ts = 1) => ({ role: "user", content, timestamp: ts });
-export const at = (text, ts = 2) => ({ role: "assistant", content: [{ type: "text", text }], timestamp: ts });
-export const aCall = (name, arguments_, ts = 2) => ({
+export const u = ({ content, ts = 1 }) => ({ role: "user", content, timestamp: ts });
+export const at = ({ text, ts = 2 }) => ({ role: "assistant", content: [{ type: "text", text }], timestamp: ts });
+export const aCall = ({ name, args, ts = 2 }) => ({
   role: "assistant",
-  content: [{ type: "toolCall", id: "call_1", name, arguments: arguments_ }],
+  content: [{ type: "toolCall", id: "call_1", name, arguments: args }],
   timestamp: ts,
 });
-export const aBoth = (text, name, arguments_, ts = 2) => ({
+export const aBoth = ({ text, name, args, ts = 2 }) => ({
   role: "assistant",
   content: [
     { type: "text", text },
-    { type: "toolCall", id: "call_1", name, arguments: arguments_ },
+    { type: "toolCall", id: "call_1", name, arguments: args },
   ],
   timestamp: ts,
 });
-export const tr = (text, toolName = "bash", ts = 3) => ({
+export const tr = ({ text, toolName = "bash", ts = 3 }) => ({
   role: "toolResult",
   toolCallId: "call_1",
   toolName,
@@ -90,7 +92,7 @@ export function msgEntry(message) {
   entrySeq += 1;
   return { type: "message", id: `e${entrySeq}`, parentId: null, timestamp: "t", message };
 }
-export function compactionEntry(id, firstKeptEntryId) {
+export function compactionEntry({ id, firstKeptEntryId }) {
   entrySeq += 1;
   return {
     type: "compaction",

@@ -33,18 +33,33 @@ function emptyBuf(): StreamBuf {
  * The gate is observe-only: it stages recall for the next assembly. That is a
  * documented design limit, not a bug.
  */
+export interface InterruptGateOptions {
+  store: CortextStore;
+  bus: InterruptBus;
+  log: (line: string) => void;
+  ingestReasoning: boolean;
+  recallLimit: number;
+  scopeKeyProvider: () => string | undefined;
+}
+
 export class InterruptGate {
   private buf: { thinking: StreamBuf; assistant: StreamBuf } | null = null;
   private current: AgentMessage | undefined;
+  private readonly store: CortextStore;
+  private readonly bus: InterruptBus;
+  private readonly log: (line: string) => void;
+  private readonly ingestReasoning: boolean;
+  private readonly recallLimit: number;
+  private readonly scopeKeyProvider: () => string | undefined;
 
-  constructor(
-    private readonly store: CortextStore,
-    private readonly bus: InterruptBus,
-    private readonly log: (line: string) => void,
-    private readonly ingestReasoning: boolean,
-    private readonly recallLimit: number,
-    private readonly scopeKeyProvider: () => string | undefined,
-  ) {}
+  constructor(options: InterruptGateOptions) {
+    this.store = options.store;
+    this.bus = options.bus;
+    this.log = options.log;
+    this.ingestReasoning = options.ingestReasoning;
+    this.recallLimit = options.recallLimit;
+    this.scopeKeyProvider = options.scopeKeyProvider;
+  }
 
   onMessageStart(message: AgentMessage): void {
     if (message.role !== "assistant") return;
@@ -83,7 +98,7 @@ export class InterruptGate {
 
       const segment = buf.buffer.trim();
       buf.buffer = "";
-      if (segment) this.gate(stream, segment);
+      if (segment) this.gate({ stream, segment });
     } catch (err) {
       // Distinct prefix: must never match the "cortext interrupt gate:" fire
       // logs, or a crashing handler looks like a working gate in the logs.
@@ -98,16 +113,16 @@ export class InterruptGate {
     }
   }
 
-  private gate(stream: GatedStream, segment: string): void {
+  private gate({ stream, segment }: { stream: GatedStream; segment: string }): void {
     const scopeKey = this.scopeKeyProvider();
     if (!scopeKey) return;
     const engine = this.store.forScope(scopeKey);
-    const ctx = engine.recall(segment, `pi/agent/${safe(scopeKey)}/stream/${stream}`);
+    const ctx = engine.recall({ text: segment, sourceId: `pi/agent/${safe(scopeKey)}/stream/${stream}` });
     if (!ctx) return;
 
     if (ctx.should_interrupt || ctx.at_boundary) {
-      const block = formatMemories(ctx.retrieved_memory, this.recallLimit);
-      if (block) this.bus.stage(scopeKey, block); // keyed by SCOPE, not sessionId
+      const block = formatMemories({ items: ctx.retrieved_memory, limit: this.recallLimit });
+      if (block) this.bus.stage({ scopeKey, block }); // keyed by SCOPE, not sessionId
       const kind = ctx.should_interrupt ? "interrupt" : "boundary";
       this.log(
         `cortext interrupt gate: ${kind} on ${stream} (scope ${scopeKey}) — staged ${ctx.retrieved_memory?.length ?? 0} memories`,

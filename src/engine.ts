@@ -122,15 +122,25 @@ export class CortextHandlers {
   private sysLines = new Map<string, Set<string>>();
   private currentScopeKey: string | undefined;
   private readonly gate: InterruptGate | null;
+  private readonly store: CortextStore;
+  private readonly bus: InterruptBus;
+  private readonly log: (line: string) => void;
+  private readonly cfg: CortextPluginConfig;
 
-  constructor(
-    private readonly store: CortextStore,
-    private readonly bus: InterruptBus,
-    private readonly log: (line: string) => void,
-    private readonly cfg: CortextPluginConfig,
-  ) {
-    this.gate = cfg.interruptGate
-      ? new InterruptGate(store, bus, log, cfg.ingestReasoning, cfg.recallLimit, () => this.currentScopeKey)
+  constructor(options: { store: CortextStore; bus: InterruptBus; log: (line: string) => void; cfg: CortextPluginConfig }) {
+    this.store = options.store;
+    this.bus = options.bus;
+    this.log = options.log;
+    this.cfg = options.cfg;
+    this.gate = options.cfg.interruptGate
+      ? new InterruptGate({
+          store: options.store,
+          bus: options.bus,
+          log: options.log,
+          ingestReasoning: options.cfg.ingestReasoning,
+          recallLimit: options.cfg.recallLimit,
+          scopeKeyProvider: () => this.currentScopeKey,
+        })
       : null;
   }
 
@@ -173,7 +183,7 @@ export class CortextHandlers {
     // Consolidation happens at compaction only (autoConsolidate); the engine's
     // throughput hint is deliberately not acted on at ingest (openclaw parity:
     // measured retrieval is identical with or without it).
-    const ingested = engine.ingest(text, `pi/${message.role}/${safe(scopeKey)}/ingest`);
+    const ingested = engine.ingest({ text, sourceId: `pi/${message.role}/${safe(scopeKey)}/ingest` });
     if (ingested === null) this.log(`cortext: ingest failed for ${message.role} (scope ${scopeKey})`);
   }
 
@@ -186,8 +196,8 @@ export class CortextHandlers {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
     const query = (event.prompt ?? "").trim();
-    const recalledCtx = query ? engine.recall(query, `pi/agent/${safe(scopeKey)}/assemble`) : null;
-    const recalled = recalledCtx ? formatMemories(recalledCtx.retrieved_memory, this.cfg.recallLimit) : "";
+    const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/assemble` }) : null;
+    const recalled = recalledCtx ? formatMemories({ items: recalledCtx.retrieved_memory, limit: this.cfg.recallLimit }) : "";
     const staged = this.bus.take(scopeKey);
     const body = [staged, recalled].filter(Boolean).join("\n");
     const lines = new Set<string>();
@@ -208,7 +218,7 @@ export class CortextHandlers {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
     const query = latestUserText(event.messages).trim();
-    const recalledCtx = query ? engine.recall(query, `pi/agent/${safe(scopeKey)}/context`) : null;
+    const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/context` }) : null;
     let excluded = this.sysLines.get(scopeKey);
     if (!excluded) {
       excluded = new Set();
@@ -217,14 +227,14 @@ export class CortextHandlers {
     const windowed = event.messages.some((m) => m.role === "compactionSummary");
     const windowTexts = event.messages.map((m) => messageTextOf(m));
     const recalled = recalledCtx
-      ? formatMemoriesExcluding(recalledCtx.retrieved_memory, this.cfg.recallLimit, excluded)
+      ? formatMemoriesExcluding({ items: recalledCtx.retrieved_memory, limit: this.cfg.recallLimit, excluded })
       : "";
     const working = windowed && recalledCtx
-      ? formatMemoriesExcluding(
-          dedupeAgainstWindow(recalledCtx.working_memory, windowTexts),
-          this.cfg.recallLimit,
+      ? formatMemoriesExcluding({
+          items: dedupeAgainstWindow({ items: recalledCtx.working_memory, windowTexts }),
+          limit: this.cfg.recallLimit,
           excluded,
-        )
+        })
       : "";
     const staged = this.bus.take(scopeKey);
     const body = [staged, recalled, working].filter(Boolean).join("\n");
@@ -256,7 +266,7 @@ export class CortextHandlers {
 
     const entries = event.branchEntries;
     const boundaryStart = previousBoundary(entries);
-    const cut = chooseCut(entries, boundaryStart, this.cfg.compactionMode, this.cfg.protectTail);
+    const cut = chooseCut({ entries, boundaryStart, mode: this.cfg.compactionMode, protectTail: this.cfg.protectTail });
 
     let firstKeptEntryId: string;
     let dropped: number;
@@ -285,7 +295,7 @@ export class CortextHandlers {
       return;
     }
 
-    const summary = bridgeSummary(this.cfg.compactionMode, dropped);
+    const summary = bridgeSummary({ mode: this.cfg.compactionMode, dropped });
     const tokensBefore = event.preparation.tokensBefore;
     const tokensAfter = estimateEntryTokens(entries.slice(cutIndex)) + Math.ceil(summary.length / 4);
     this.log(

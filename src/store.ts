@@ -13,7 +13,8 @@ const MAX_PENDING = 128;
 export class InterruptBus {
   private pending = new Map<string, string>();
 
-  stage(scopeKey: string, block: string): void {
+  stage(options: { scopeKey: string; block: string }): void {
+    const { scopeKey, block } = options;
     if (!block.trim()) return;
     const prev = this.pending.get(scopeKey);
     this.pending.delete(scopeKey); // re-insert as most recent

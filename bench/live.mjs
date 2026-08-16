@@ -65,13 +65,19 @@ let allEvents = [];
 let settledSeen = 0;
 let seq = 0;
 
-function record(name, pass, evidence) {
+// Named per LOCAL-ARG-001 (bare booleans / magic numbers get constants).
+const RESULT_PASS = true;
+const RESULT_FAIL = false;
+const HANDSHAKE_TIMEOUT_MS = 5000;
+const RPC_DEFAULT_TIMEOUT_MS = 180000;
+
+function record({ name, pass, evidence }) {
   results.push({ name, pass, evidence });
   console.log(`${pass ? "PASS" : "FAIL"}  ${name}${evidence ? `  [${evidence}]` : ""}`);
 }
-function failNow(name, evidence) {
-  record(name, false, evidence);
-  cleanup(false);
+function failNow({ name, evidence }) {
+  record({ name, pass: RESULT_FAIL, evidence });
+  cleanup({ passed: RESULT_FAIL });
   summary();
   process.exit(1);
 }
@@ -93,7 +99,7 @@ function rpcSend(obj) {
     const t = setTimeout(() => {
       pending.delete(id);
       reject(new Error(`RPC timeout waiting for response to ${obj.type}`));
-    }, obj.__timeoutMs ?? 180000);
+    }, obj.__timeoutMs ?? RPC_DEFAULT_TIMEOUT_MS);
     pending.set(id, { resolve: (v) => { clearTimeout(t); resolve(v); }, reject: (e) => { clearTimeout(t); reject(e); } });
   });
   child.stdin.write(JSON.stringify(msg) + "\n");
@@ -129,7 +135,7 @@ function onStdoutChunk(chunk) {
 // Bench steps
 // --------------------------------------------------------------------------
 async function main() {
-  if (!existsSync(EXTENSION)) failNow("preflight", `dist/index.js missing — run npm run build first (${EXTENSION})`);
+  if (!existsSync(EXTENSION)) failNow({ name: "preflight", evidence: `dist/index.js missing — run npm run build first (${EXTENSION})` });
 
   tmpDir = mkdtempSync(join(tmpdir(), "cortext-pi-bench-"));
   projectDir = mkdtempSync(join(tmpDir, "project-"));
@@ -163,7 +169,7 @@ async function main() {
   child.stdout.on("data", onStdoutChunk);
   child.on("error", (err) => {
     console.error(`bench: fatal: failed to spawn pi: ${err.code ?? ""} ${err.message}`);
-    cleanup(false);
+    cleanup({ passed: RESULT_FAIL });
     summary();
     process.exit(1);
   });
@@ -178,14 +184,14 @@ async function main() {
   let state = null;
   for (let i = 0; i < 60; i++) {
     try {
-      const res = await rpcSend({ type: "get_state", __timeoutMs: 5000 }).catch(() => null);
+      const res = await rpcSend({ type: "get_state", __timeoutMs: HANDSHAKE_TIMEOUT_MS }).catch(() => null);
       if (res?.success) { state = res.data; break; }
     } catch { /* not ready yet */ }
     await new Promise((r) => setTimeout(r, 500));
   }
   if (!state?.sessionId) {
     const extErr = allEvents.filter((e) => e.type === "extension_error").slice(0, 3);
-    failNow("preflight", `pi RPC did not report a session in 30s (extension_error: ${JSON.stringify(extErr)})`);
+    failNow({ name: "preflight", evidence: `pi RPC did not report a session in 30s (extension_error: ${JSON.stringify(extErr)})` });
   }
   const s1 = state.sessionId;
   console.log(`bench: pi ${state.model?.provider ?? PROVIDER}/${state.model?.id ?? MODEL} thinking=${state.thinkingLevel ?? THINKING} session=${s1}`);
@@ -224,17 +230,17 @@ async function main() {
 
   // 3) Compact — must be extension-provided, zero LLM calls.
   const compactRes = await rpcSend({ type: "compact" });
-  if (!compactRes.success) failNow("compaction-zero", `compact rejected: ${compactRes.error}`);
+  if (!compactRes.success) failNow({ name: "compaction-zero", evidence: `compact rejected: ${compactRes.error}` });
   const compactEv = allEvents.find((e) => e.type === "compaction_end");
-  if (!compactEv?.result) failNow("compaction-zero", `no compaction_end result: ${JSON.stringify(compactEv)}`);
+  if (!compactEv?.result) failNow({ name: "compaction-zero", evidence: `no compaction_end result: ${JSON.stringify(compactEv)}` });
   const cr = compactEv.result;
   const zeroLlm = cr.details?.engine === "cortext" && cr.usage === undefined && /Cortext/.test(cr.summary ?? "");
-  record(
-    "compaction-zero (extension CompactionEntry, no summarizer LLM call)",
-    zeroLlm,
-    `details.engine=${cr.details?.engine ?? "none"}, usage=${cr.usage === undefined ? "absent" : "PRESENT"}, firstKeptEntryId=${cr.firstKeptEntryId ?? "none"}, summary~=${(cr.summary ?? "").slice(0, 60)}...`,
-  );
-  if (!zeroLlm) failNow("compaction-zero", "see above");
+  record({
+    name: "compaction-zero (extension CompactionEntry, no summarizer LLM call)",
+    pass: zeroLlm,
+    evidence: `details.engine=${cr.details?.engine ?? "none"}, usage=${cr.usage === undefined ? "absent" : "PRESENT"}, firstKeptEntryId=${cr.firstKeptEntryId ?? "none"}, summary~=${(cr.summary ?? "").slice(0, 60)}...`,
+  });
+  if (!zeroLlm) failNow({ name: "compaction-zero", evidence: "see above" });
 
   // 4) Prove the needle is archived: on the branch, the needle entry must be
   //    before firstKeptEntryId (not in the rebuilt kept window).
@@ -247,12 +253,12 @@ async function main() {
   const needleEntry = branch.find((e) => e.type === "message" && e.message?.role === "user" && JSON.stringify(e.message.content ?? "").includes(NEEDLE));
   const cmpEntry = branch.find((e) => e.type === "compaction");
   const archived = Boolean(needleEntry) && keptStart >= 0 && branch.indexOf(needleEntry) < keptStart;
-  record(
-    "compaction-window (needle provably archived, exchange-aligned cut)",
-    archived,
-    `needleEntry=${needleEntry?.id ?? "NOT FOUND"}, firstKeptEntryId index=${keptStart}, branch=${branch.length} entries, compaction fromExtension=${cmpEntry?.fromExtension ?? cmpEntry?.fromHook ?? "n/a"}`,
-  );
-  if (!archived) failNow("compaction-window", "see above");
+  record({
+    name: "compaction-window (needle provably archived, exchange-aligned cut)",
+    pass: archived,
+    evidence: `needleEntry=${needleEntry?.id ?? "NOT FOUND"}, firstKeptEntryId index=${keptStart}, branch=${branch.length} entries, compaction fromExtension=${cmpEntry?.fromExtension ?? cmpEntry?.fromHook ?? "n/a"}`,
+  });
+  if (!archived) failNow({ name: "compaction-window", evidence: "see above" });
 
   // 5) The crown control: needle exists ONLY in the archived prefix — the
   //    model can answer it only from Cortext injection. One retry allowed
@@ -263,50 +269,50 @@ async function main() {
     qa = await prompt(`Try again — what was the exact secret codename I told you to remember? Answer with just the codename.`);
     attempts = 2;
   }
-  record(
-    "recall-post-compaction (archived-only needle answered from memory)",
-    qa.includes(NEEDLE),
-    `attempts=${attempts}, answer~="${qa.slice(0, 80)}"`,
-  );
-  if (!qa.includes(NEEDLE)) failNow("recall-post-compaction", "see above");
+  record({
+    name: "recall-post-compaction (archived-only needle answered from memory)",
+    pass: qa.includes(NEEDLE),
+    evidence: `attempts=${attempts}, answer~="${qa.slice(0, 80)}"`,
+  });
+  if (!qa.includes(NEEDLE)) failNow({ name: "recall-post-compaction", evidence: "see above" });
 
   // 6) Negative session: new session, same process, same store base — must NOT
   //    know the needle (session scope = one store per session).
   const newRes = await rpcSend({ type: "new_session" });
-  if (!newRes.success) failNow("isolation-session", `new_session rejected: ${newRes.error}`);
+  if (!newRes.success) failNow({ name: "isolation-session", evidence: `new_session rejected: ${newRes.error}` });
   const s2state = (await rpcSend({ type: "get_state" })).data;
   const s2 = s2state.sessionId;
-  if (s2 === s1) failNow("isolation-session", "new_session returned the same session id");
+  if (s2 === s1) failNow({ name: "isolation-session", evidence: "new_session returned the same session id" });
   const s2answer = await prompt(`What is the secret codename I told you to remember? I am sure I told it to you in this conversation. Answer with just the codename, or say I never told you.`);
-  record(
-    "isolation-session (different session cannot read the fact, live model check)",
-    !s2answer.includes(NEEDLE),
-    `s2=${s2}, answer~="${s2answer.slice(0, 80)}"`,
-  );
-  if (s2answer.includes(NEEDLE)) failNow("isolation-session", "see above");
+  record({
+    name: "isolation-session (different session cannot read the fact, live model check)",
+    pass: !s2answer.includes(NEEDLE),
+    evidence: `s2=${s2}, answer~="${s2answer.slice(0, 80)}"`,
+  });
+  if (s2answer.includes(NEEDLE)) failNow({ name: "isolation-session", evidence: "see above" });
 
   // 7) Store-level controls with FRESH handles (durable + cross-scope).
-  const cfg = resolveConfig(benchConfig);
+  const cfg = resolveConfig(benchConfig).config;
   const engineFor = (sessionId) =>
-    new CortextEngine(join(storeDir, `s-${safe(sessionId)}.sqlite`), cfg);
+    new CortextEngine({ dbPath: join(storeDir, `s-${safe(sessionId)}.sqlite`), cfg });
   const recallText = (sessionId) => {
-    const ctx = engineFor(sessionId).recall("secret codename to remember", "bench/verify");
+    const ctx = engineFor(sessionId).recall({ text: "secret codename to remember", sourceId: "bench/verify" });
     if (!ctx) return "";
     return (ctx.retrieved_memory ?? []).map(memoryText).join("\n");
   };
   const s1Recall = recallText(s1);
-  record(
-    "ingest-durable (fresh handle on S1 store recalls the needle)",
-    s1Recall.includes(NEEDLE),
-    `retrieved ${s1Recall.split("\n").filter(Boolean).length} memor(y/ies)`,
-  );
+  record({
+    name: "ingest-durable (fresh handle on S1 store recalls the needle)",
+    pass: s1Recall.includes(NEEDLE),
+    evidence: `retrieved ${s1Recall.split("\n").filter(Boolean).length} memor(y/ies)`,
+  });
   const s2Recall = recallText(s2);
-  record(
-    "isolation-store (fresh handle on S2 store does NOT recall the needle)",
-    !s2Recall.includes(NEEDLE),
-    `s2 retrieved text~="${s2Recall.slice(0, 60)}"`,
-  );
-  if (!s1Recall.includes(NEEDLE) || s2Recall.includes(NEEDLE)) failNow("ingest-durable/isolation-store", "see above");
+  record({
+    name: "isolation-store (fresh handle on S2 store does NOT recall the needle)",
+    pass: !s2Recall.includes(NEEDLE),
+    evidence: `s2 retrieved text~="${s2Recall.slice(0, 60)}"`,
+  });
+  if (!s1Recall.includes(NEEDLE) || s2Recall.includes(NEEDLE)) failNow({ name: "ingest-durable/isolation-store", evidence: "see above" });
 
   // 8) Mechanism + gate observation from stderr / events.
   const extLines = stderrLines.filter((l) => l.includes("cortext:"));
@@ -315,23 +321,23 @@ async function main() {
   const observed = extLines.filter((l) => l.includes("cortext gate: observing assistant message")).length;
   const injections = extLines.filter((l) => l.includes("cortext: injected") || l.includes("per-LLM-call recall injected")).length;
   const fires = extLines.filter((l) => /cortext interrupt gate: (interrupt|boundary)/.test(l)).length;
-  record(
-    "gate-observe (streaming gate observed, no handler errors)",
-    observed > 0 && gateErrors.length === 0 && extErrEvents.length === 0,
-    `observing=${observed}, injections=${injections}, gate fires=${fires}, gateErrors=${gateErrors.length}, extension_errors=${extErrEvents.length}`,
-  );
-  record(
-    "ingest-mechanism (extension active, recall injected, no handler errors)",
-    extLines.some((l) => l.includes("cortext extension active")) && injections > 0 && extErrEvents.length === 0,
-    `active-line present, injection lines=${injections}`,
-  );
+  record({
+    name: "gate-observe (streaming gate observed, no handler errors)",
+    pass: observed > 0 && gateErrors.length === 0 && extErrEvents.length === 0,
+    evidence: `observing=${observed}, injections=${injections}, gate fires=${fires}, gateErrors=${gateErrors.length}, extension_errors=${extErrEvents.length}`,
+  });
+  record({
+    name: "ingest-mechanism (extension active, recall injected, no handler errors)",
+    pass: extLines.some((l) => l.includes("cortext extension active")) && injections > 0 && extErrEvents.length === 0,
+    evidence: `active-line present, injection lines=${injections}`,
+  });
 
-  cleanup(true);
+  cleanup({ passed: RESULT_PASS });
   summary();
   process.exit(results.every((r) => r.pass) ? 0 : 1);
 }
 
-function cleanup(passed) {
+function cleanup({ passed }) {
   try {
     if (child && !child.killed) child.kill("SIGTERM");
   } catch { /* already dead */ }
@@ -346,7 +352,7 @@ function cleanup(passed) {
 
 main().catch((err) => {
   console.error(`bench: fatal: ${err?.stack ?? err}`);
-  cleanup(false);
+  cleanup({ passed: RESULT_FAIL });
   summary();
   process.exit(1);
 });

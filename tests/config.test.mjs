@@ -13,7 +13,7 @@ test("resolveConfig returns defaults for empty input", () => {
 });
 
 test("default memory scope is session (multi-user safe)", () => {
-  assert.equal(DEFAULTS.memoryScope, "session");
+  assert.equal(DEFAULTS.memoryScope, SESSION_SCOPE);
 });
 
 test("resolveConfig overrides known keys", () => {
