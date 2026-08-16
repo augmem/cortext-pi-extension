@@ -9,7 +9,7 @@ import { fakeCtx, silentLog, tempDir, u, at, aCall, tr, msgEntry, compactionEntr
 /** Build the real handler stack (native Cortext engines) on an isolated
  *  temp-dir store — the same classes register() wires, minus the pi API. */
 function build(baseDir, cfg = {}) {
-  const config = resolveConfig(cfg);
+  const config = resolveConfig(cfg).config;
   const store = new CortextStore(config, baseDir);
   const bus = new InterruptBus();
   const handlers = new CortextHandlers(store, bus, silentLog, config);

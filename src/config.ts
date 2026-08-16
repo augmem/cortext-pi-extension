@@ -87,16 +87,58 @@ export function loadRawConfig(configFile: string = CONFIG_FILE): Record<string, 
   return raw;
 }
 
-export function resolveConfig(raw: Record<string, unknown> | undefined): CortextPluginConfig {
+/** Result of config resolution: the validated config plus the KEYS (never
+ *  values — they may be sensitive or unprintable) of any raw source field
+ *  that failed validation and fell back to DEFAULTS. */
+export interface ResolvedConfig {
+  config: CortextPluginConfig;
+  rejectedKeys: (keyof CortextPluginConfig)[];
+}
+
+/**
+ * Per-field validation: a raw value is accepted ONLY if it matches the field's
+ * declared type; anything else falls back to the field's DEFAULTS value and
+ * the key is reported (keys only, never values). Unknown keys are ignored
+ * (not rejected — they are not fields of this config). This is the boundary
+ * between untrusted config sources and the config object every handler reads.
+ */
+const isValidValue = ({ key, value }: { key: keyof CortextPluginConfig; value: unknown }): boolean => {
+  switch (key) {
+    case "dbPath":
+      return typeof value === "string" && value.trim().length > 0;
+    case "focus":
+    case "sensitivity":
+    case "stability":
+      return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+    case "recallLimit":
+    case "protectTail":
+      return typeof value === "number" && Number.isInteger(value) && value >= 0;
+    case "interruptGate":
+    case "ingestReasoning":
+    case "autoConsolidate":
+      return typeof value === "boolean";
+    case "memoryScope":
+      return typeof value === "string" && SCOPES.includes(value as MemoryScope);
+    case "compactionMode":
+      return typeof value === "string" && COMPACTION_MODES.includes(value as CompactionMode);
+    default:
+      return false;
+  }
+};
+
+export function resolveConfig(raw: Record<string, unknown> | undefined): ResolvedConfig {
   const cfg: CortextPluginConfig = { ...DEFAULTS };
-  if (!raw) return cfg;
+  const rejectedKeys: (keyof CortextPluginConfig)[] = [];
+  if (!raw) return { config: cfg, rejectedKeys };
   for (const key of Object.keys(DEFAULTS) as (keyof CortextPluginConfig)[]) {
     const value = raw[key];
     if (value === undefined || value === null) continue;
-    (cfg as unknown as Record<string, unknown>)[key] = value;
+    if (!isValidValue({ key, value })) {
+      rejectedKeys.push(key);
+      continue;
+    }
+    // dbPath is stored trimmed ("" and whitespace-only are rejected above).
+    (cfg as unknown as Record<string, unknown>)[key] = key === "dbPath" ? (value as string).trim() : value;
   }
-  if (!SCOPES.includes(cfg.memoryScope)) cfg.memoryScope = "session";
-  if (!COMPACTION_MODES.includes(cfg.compactionMode)) cfg.compactionMode = "hybrid";
-  if (!Number.isFinite(cfg.protectTail) || cfg.protectTail < 0) cfg.protectTail = 6;
-  return cfg;
+  return { config: cfg, rejectedKeys };
 }

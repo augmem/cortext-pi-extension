@@ -20,10 +20,14 @@ import { CortextHandlers } from "./engine.js";
  *   CORTEX_PI_CONFIG env var (JSON) > ~/.pi/agent/cortext/config.json > defaults
  */
 export function register(pi: ExtensionAPI): void {
-  const cfg = resolveConfig(loadRawConfig());
   // pi's stdout is the TUI (or the RPC JSONL protocol) — diagnostics go to
   // stderr, mirroring the openclaw plugin's structured logging.
   const log = (line: string) => process.stderr.write(`cortext: ${line}\n`);
+  const { config: cfg, rejectedKeys } = resolveConfig(loadRawConfig());
+  if (rejectedKeys.length > 0) {
+    // Keys only, never values: a config value may be sensitive or unprintable.
+    log(`config rejected key(s), using defaults: ${rejectedKeys.join(", ")}`);
+  }
   const bus = new InterruptBus();
   // One SQLite store per isolation scope under the pi agent dir, mirroring
   // openclaw's agent-dir layout (~/.openclaw/cortext -> ~/.pi/agent/cortext).

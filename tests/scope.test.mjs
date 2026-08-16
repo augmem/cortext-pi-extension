@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { CortextStore } from "../dist/cortext.js";
 import { resolveConfig } from "../dist/config.js";
 
-const store = (scope) => new CortextStore(resolveConfig({ memoryScope: scope }), "/tmp/x");
+const store = (scope) => new CortextStore(resolveConfig({ memoryScope: scope }).config, "/tmp/x");
 
 test("session scope: distinct session ids give distinct stores (no collapse)", () => {
   const s = store("session");
