@@ -215,7 +215,9 @@ nonsense-token needle a model can't guess — is asserted by
   native store cannot be opened for a scope (missing store dir, corrupt DB
   file, binding rejection), that scope degrades to recall-less passthrough
   with a one-time `cortext store error` log line per scope — the agent keeps
-  running and memory for that scope is off until the store opens.
+  running, and memory for that scope stays off for the rest of the pi process
+  lifetime: there is no automatic retry, so restarting pi re-attempts the
+  store open.
 - **Telemetry is spans only, and fully offline.** Control and failure paths
   emit OpenTelemetry spans via `@opentelemetry/api` (a no-op proxy when no
   collector/SDK is present), so the extension stays fully offline with no
