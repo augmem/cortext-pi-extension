@@ -256,7 +256,7 @@ async function main() {
   record({
     name: "compaction-window (needle provably archived, exchange-aligned cut)",
     pass: archived,
-    evidence: `needleEntry=${needleEntry?.id ?? "NOT FOUND"}, firstKeptEntryId index=${keptStart}, branch=${branch.length} entries, compaction fromExtension=${cmpEntry?.fromExtension ?? cmpEntry?.fromHook ?? "n/a"}`,
+    evidence: `needleEntry=${needleEntry?.id ?? "NOT FOUND"}, firstKeptEntryId index=${keptStart}, branch=${branch.length} entries, compaction fromHook=${cmpEntry?.fromHook ?? "false"}`,
   });
   if (!archived) failNow({ name: "compaction-window", evidence: "see above" });
 
