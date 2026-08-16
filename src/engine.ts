@@ -14,6 +14,7 @@ import type {
   SessionShutdownEvent,
   SessionStartEvent,
 } from "./pi.js";
+import type { CortextContext } from "@augmem/cortext";
 import type { CortextPluginConfig } from "./config.js";
 import {
   CortextStore,
@@ -26,6 +27,7 @@ import {
 import { bridgeSummary, chooseCut, estimateEntryTokens, previousBoundary } from "./compaction.js";
 import type { InterruptBus } from "./store.js";
 import { InterruptGate } from "./stream.js";
+import { OUTCOME, SPANS, SURFACES, endSpan, startSpan } from "./telemetry.js";
 
 // Bound serialized tool-call arguments so a huge payload (a file write, a long
 // patch) doesn't dominate the store; the result text is ingested separately
@@ -185,10 +187,12 @@ export class CortextHandlers {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
     if (!engine) return; // degraded scope: skip ingest (no throw)
+    const span = startSpan({ name: SPANS.ingest, attributes: { role: message.role, textLength: text.length } });
     // Consolidation happens at compaction only (autoConsolidate); the engine's
     // throughput hint is deliberately not acted on at ingest (openclaw parity:
     // measured retrieval is identical with or without it).
     const ingested = engine.ingest({ text, sourceId: `pi/${message.role}/${safe(scopeKey)}/ingest` });
+    endSpan({ span, outcome: ingested === null ? OUTCOME.error : OUTCOME.ok });
     if (ingested === null) this.log(`cortext: ingest failed for ${message.role} (scope ${scopeKey})`);
   }
 
@@ -202,7 +206,12 @@ export class CortextHandlers {
     const engine = this.store.forScope(scopeKey);
     if (!engine) return; // degraded scope: recall-less passthrough (no throw)
     const query = (event.prompt ?? "").trim();
-    const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/assemble` }) : null;
+    let recalledCtx: CortextContext | null = null;
+    if (query) {
+      const span = startSpan({ name: SPANS.recall, attributes: { surface: SURFACES.systemPrompt } });
+      recalledCtx = engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/assemble` });
+      endSpan({ span, outcome: recalledCtx ? OUTCOME.ok : OUTCOME.error, attributes: { memoryCount: recalledCtx?.retrieved_memory?.length ?? 0 } });
+    }
     const recalled = recalledCtx ? formatMemories({ items: recalledCtx.retrieved_memory, limit: this.cfg.recallLimit }) : "";
     const staged = this.bus.take(scopeKey);
     const body = [staged, recalled].filter(Boolean).join("\n");
@@ -225,7 +234,12 @@ export class CortextHandlers {
     const engine = this.store.forScope(scopeKey);
     if (!engine) return; // degraded scope: recall-less passthrough (no throw)
     const query = latestUserText(event.messages).trim();
-    const recalledCtx = query ? engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/context` }) : null;
+    let recalledCtx: CortextContext | null = null;
+    if (query) {
+      const span = startSpan({ name: SPANS.recall, attributes: { surface: SURFACES.context } });
+      recalledCtx = engine.recall({ text: query, sourceId: `pi/agent/${safe(scopeKey)}/context` });
+      endSpan({ span, outcome: recalledCtx ? OUTCOME.ok : OUTCOME.error, attributes: { memoryCount: recalledCtx?.retrieved_memory?.length ?? 0 } });
+    }
     let excluded = this.sysLines.get(scopeKey);
     if (!excluded) {
       excluded = new Set();
@@ -269,6 +283,7 @@ export class CortextHandlers {
     const scopeKey = this.scopeKey(ctx);
     const engine = this.store.forScope(scopeKey);
     if (!engine) return; // degraded scope: pi's default compaction applies
+    const span = startSpan({ name: SPANS.compact, attributes: { mode: this.cfg.compactionMode } });
     if (this.cfg.autoConsolidate) engine.consolidate();
     engine.flush();
 
@@ -300,6 +315,7 @@ export class CortextHandlers {
       // Nothing before the protected window to archive — there is no durable
       // memory standing behind this cut, so pi's default compaction applies.
       this.log("cortext compaction: nothing before the protected window to archive; pi default applies");
+      endSpan({ span, outcome: OUTCOME.ok, attributes: { dropped: 0 } });
       return;
     }
 
@@ -310,6 +326,7 @@ export class CortextHandlers {
       `cortext compaction: archived ${dropped} message(s) ~${tokensBefore} -> ~${tokensAfter} tokens ` +
       `(scope ${scopeKey}, ${this.cfg.compactionMode}, no summarizer LLM call)`,
     );
+    endSpan({ span, outcome: OUTCOME.ok, attributes: { dropped } });
     return {
       compaction: {
         summary,

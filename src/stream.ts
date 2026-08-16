@@ -1,6 +1,7 @@
 import type { AssistantMessageEvent, AgentMessage } from "./pi.js";
 import { CortextStore, formatMemories, safe } from "./cortext.js";
 import type { InterruptBus } from "./store.js";
+import { OUTCOME, SPANS, SURFACES, endSpan, recordFailure, startSpan } from "./telemetry.js";
 
 const SEGMENT_MIN_CHARS = 120;
 const BREAK = /[.!?\n]/;
@@ -100,6 +101,7 @@ export class InterruptGate {
       buf.buffer = "";
       if (segment) this.gate({ stream, segment });
     } catch (err) {
+      recordFailure({ name: SPANS.gate });
       // Distinct prefix: must never match the "cortext interrupt gate:" fire
       // logs, or a crashing handler looks like a working gate in the logs.
       this.log(`cortext gate error: ${String(err)}`);
@@ -118,13 +120,18 @@ export class InterruptGate {
     if (!scopeKey) return;
     const engine = this.store.forScope(scopeKey);
     if (!engine) return; // degraded scope: no recall, no throw
+    const span = startSpan({ name: SPANS.recall, attributes: { surface: SURFACES.gate } });
     const ctx = engine.recall({ text: segment, sourceId: `pi/agent/${safe(scopeKey)}/stream/${stream}` });
+    endSpan({ span, outcome: ctx ? OUTCOME.ok : OUTCOME.error, attributes: { memoryCount: ctx?.retrieved_memory?.length ?? 0 } });
     if (!ctx) return;
 
     if (ctx.should_interrupt || ctx.at_boundary) {
       const block = formatMemories({ items: ctx.retrieved_memory, limit: this.recallLimit });
+      const stagedCount = block ? (ctx.retrieved_memory?.length ?? 0) : 0;
       if (block) this.bus.stage({ scopeKey, block }); // keyed by SCOPE, not sessionId
       const kind = ctx.should_interrupt ? "interrupt" : "boundary";
+      const gateSpan = startSpan({ name: SPANS.gate, attributes: { stream, kind, stagedCount } });
+      gateSpan.end();
       this.log(
         `cortext interrupt gate: ${kind} on ${stream} (scope ${scopeKey}) — staged ${ctx.retrieved_memory?.length ?? 0} memories`,
       );

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import type { Cortext as CortextHandle, CortextContext, CortextMemory } from "@augmem/cortext";
 import type { CortextPluginConfig, MemoryScope } from "./config.js";
+import { SPANS, recordFailure } from "./telemetry.js";
 
 // @augmem/cortext is a CommonJS native addon; load it via require so its named
 // exports resolve under ESM.
@@ -34,6 +35,7 @@ export class CortextEngine {
       // flush() remains only at deliberate checkpoints (compact/shutdown).
       return this.engine.processText(trimmed, options.sourceId, { retention: "durable" });
     } catch {
+      recordFailure({ name: SPANS.ingest });
       return null;
     }
   }
@@ -44,15 +46,16 @@ export class CortextEngine {
     try {
       return this.engine.processText(trimmed, options.sourceId, { retention: "ephemeral" });
     } catch {
+      recordFailure({ name: SPANS.recall });
       return null;
     }
   }
 
   consolidate(): void {
-    try { this.engine.consolidate(); } catch { /* best-effort */ }
+    try { this.engine.consolidate(); } catch { recordFailure({ name: SPANS.compact }); /* best-effort */ }
   }
   flush(): void {
-    try { this.engine.flush(); } catch { /* best-effort */ }
+    try { this.engine.flush(); } catch { recordFailure({ name: SPANS.engineFlush }); /* best-effort */ }
   }
 }
 
@@ -121,6 +124,7 @@ export class CortextStore {
     try {
       engine = new CortextEngine({ dbPath: join(this.storeDir(), `${key}.sqlite`), cfg: this.cfg });
     } catch (err) {
+      recordFailure({ name: SPANS.engineCreate });
       // Distinct prefix: must never match "cortext gate error" or
       // "cortext interrupt gate:" (a store failure must not read as a gate
       // fire or a gate crash in the logs).
