@@ -29,7 +29,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-pi-types.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs && node scripts/verify-entry.mjs",
     "test:unit": "npm run build && node --test tests/*.test.mjs",
@@ -38,7 +38,8 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@augmem/cortext": "^1.2.3"
+    "@augmem/cortext": "^1.2.3",
+    "@opentelemetry/api": "^1.9.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
