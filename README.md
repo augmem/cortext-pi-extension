@@ -145,7 +145,7 @@ watching; restart pi to apply changes.
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `dbPath` | `cortext` | Directory (under `~/.pi/agent/cortext`) for stores |
+| `dbPath` | `cortext` | Directory (under `~/.pi/agent/cortext`) for stores; `'.'`/`'..'` fall back to `cortext` (traversal guard) |
 | `memoryScope` | `session` | Isolation boundary: `session` / `agent` / `global` |
 | `focus` | `0.45` | F knob: retrieval breadth vs precision |
 | `sensitivity` | `0.5` | S knob: affective relaxation of the gate |

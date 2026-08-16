@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CortextStore } from "../dist/cortext.js";
 import { resolveConfig } from "../dist/config.js";
+import { join } from "node:path";
 import { silentLog } from "./helpers.mjs";
 
 // Enum values (named per LOCAL-ARG-001).
@@ -48,6 +49,13 @@ test("agent scope: Windows cwd paths yield the real basename (both separators)",
   const winKey = s.scopeKey({ cwd: "C:\\Users\\gab\\proj-win" });
   assert.equal(winKey, s.scopeKey({ cwd: "/tmp/proj-win" }), "backslashed cwd resolves to the same basename");
   assert.notEqual(winKey, s.scopeKey({ cwd: "/tmp/other" }), "distinct basenames stay distinct");
+});
+
+test("storeDir: dbPath '.' and '..' fall back to the 'cortext' subdir (traversal guard)", () => {
+  const mk = (dbPath) => new CortextStore({ cfg: resolveConfig({ dbPath }).config, baseDir: "/tmp/x-store", log: silentLog });
+  assert.equal(mk(".").storeDir(), join("/tmp/x-store", "cortext"), "dbPath '.' falls back");
+  assert.equal(mk("..").storeDir(), join("/tmp/x-store", "cortext"), "dbPath '..' falls back");
+  assert.equal(mk("custom").storeDir(), join("/tmp/x-store", "custom"), "a normal dbPath is used as-is");
 });
 
 test("global scope: one shared store regardless of ids", () => {
