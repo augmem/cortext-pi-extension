@@ -44,10 +44,10 @@ cd ~/.pi/agent/extensions/cortext && npm install && npm run build
   codename, the transcript shows the codename exists **only** in the archived
   prefix, and the next turn answers it from memory injection alone. Run it:
   `npm run test:integration`.
-- **Fast enough to forget it's there.** Flat ~8.5 ms per-message durable
-  ingest (whole message, warm store, measured on this repo's bench machine),
-  fully offline after a one-time model download, no per-turn network, no
-  API keys.
+- **Fast enough to forget it's there.** Median 2.94 ms per-message durable
+  ingest (mean 2.96 ms, p95 3.34 ms; N=200, warm store, 200-char messages,
+  `node bench/latency.mjs`), fully offline after a one-time model download,
+  no per-turn network, no API keys.
 - **Isolated by default.** One SQLite store per conversation — a shared
   project agent can't leak one user's facts to another. Verified live with
   positive and negative controls (a different session *cannot* read the
