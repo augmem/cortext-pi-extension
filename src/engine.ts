@@ -164,6 +164,10 @@ export class CortextHandlers {
   onSessionShutdown(event: SessionShutdownEvent, _ctx: ExtensionContext): void {
     // Flush open native engines; safe to call more than once.
     this.store.disposeAll();
+    // Drop per-scope injection bookkeeping: a restarted session re-recalls
+    // fresh anyway, and a long-lived extension process must not accumulate
+    // one Set per historical scope.
+    this.sysLines.clear();
     this.log(`cortext: session_shutdown (${event.reason})`);
   }
 
