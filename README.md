@@ -282,6 +282,10 @@ npm test            # build + unit tests (native engine; fast, offline)
 npm run test:integration   # live bench against the installed pi
 ```
 
+`npm test` includes a build-reproducibility gate (`npm run build:verify`
+diffs a fresh tsc emit against `dist/`), and a GitHub Actions CI workflow
+runs typecheck, the full test chain, and `npm audit`.
+
 `src/pi.d.ts` is transcribed from the **installed**
 `@earendil-works/pi-coding-agent` package's `dist/` types — if pi's
 extension surface changes, the transcription is re-verified against the real
