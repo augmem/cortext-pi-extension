@@ -288,9 +288,11 @@ npm run test:integration   # live bench against the installed pi
 ```
 
 `npm test` includes a build-reproducibility gate (`npm run build:verify`
-diffs a fresh tsc emit against `dist/`) and a dependency-inventory gate
+diffs a fresh tsc emit against `dist/`), a dependency-inventory gate
 (`npm run notice:verify` fails when a `package.json` runtime dependency is
-not named in `NOTICE`), and a GitHub Actions CI workflow
+not named in `NOTICE`), and a test-count gate
+(`npm run testcount:verify` fails when the README Verified test count
+drifts from `tests/*.test.mjs`); a GitHub Actions CI workflow
 runs typecheck, the full test chain, and `npm audit`.
 
 `src/pi.d.ts` is transcribed from the **installed**
