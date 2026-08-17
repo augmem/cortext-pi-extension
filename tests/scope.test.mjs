@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { CortextStore } from "../dist/cortext.js";
 import { resolveConfig } from "../dist/config.js";
 import { join } from "node:path";
-import { silentLog } from "./helpers.mjs";
+import { silentLog, tempDir } from "./helpers.mjs";
 
 // Enum values (named per LOCAL-ARG-001).
 const SESSION_SCOPE = "session";
@@ -52,10 +52,15 @@ test("agent scope: Windows cwd paths yield the real basename (both separators)",
 });
 
 test("storeDir: dbPath '.' and '..' fall back to the 'cortext' subdir (traversal guard)", () => {
-  const mk = (dbPath) => new CortextStore({ cfg: resolveConfig({ dbPath }).config, baseDir: "/tmp/x-store", log: silentLog });
-  assert.equal(mk(".").storeDir(), join("/tmp/x-store", "cortext"), "dbPath '.' falls back");
-  assert.equal(mk("..").storeDir(), join("/tmp/x-store", "cortext"), "dbPath '..' falls back");
-  assert.equal(mk("custom").storeDir(), join("/tmp/x-store", "custom"), "a normal dbPath is used as-is");
+  const { dir, cleanup } = tempDir();
+  try {
+    const mk = (dbPath) => new CortextStore({ cfg: resolveConfig({ dbPath }).config, baseDir: dir, log: silentLog });
+    assert.equal(mk(".").storeDir(), join(dir, "cortext"), "dbPath '.' falls back");
+    assert.equal(mk("..").storeDir(), join(dir, "cortext"), "dbPath '..' falls back");
+    assert.equal(mk("custom").storeDir(), join(dir, "custom"), "a normal dbPath is used as-is");
+  } finally {
+    cleanup();
+  }
 });
 
 test("global scope: one shared store regardless of ids", () => {
