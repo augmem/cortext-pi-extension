@@ -19,7 +19,7 @@ pi install npm:@augmem/cortext-pi-extension
 # then restart pi
 
 # dev install from source instead
-git clone <this repo> ~/.pi/agent/extensions/cortext
+git clone https://github.com/augmem/cortext-pi-extension ~/.pi/agent/extensions/cortext
 cd ~/.pi/agent/extensions/cortext && npm install && npm run build
 # then restart pi — the extension is auto-discovered
 # (equivalently: pi -e /abs/path/to/dist/index.js for a single run)
