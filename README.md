@@ -14,7 +14,11 @@ to pi's extension surface: same memory loop, same architecture, same test and
 proof standards — on the events the harness actually emits.
 
 ```bash
-# dev install (package is not on npm yet)
+# install from npm (listed in the pi package gallery, pi.dev/packages)
+pi install npm:@augmem/cortext-pi-extension
+# then restart pi
+
+# dev install from source instead
 git clone <this repo> ~/.pi/agent/extensions/cortext
 cd ~/.pi/agent/extensions/cortext && npm install && npm run build
 # then restart pi — the extension is auto-discovered
