@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * Test-count gate: the "N tests" figure in the README Verified section must
- * match the actual top-level test() registrations in tests/*.test.mjs. The
- * count line has drifted twice (round-2 R2-2, round-5 R5-1); this makes it
- * a checked fact instead of a hand-maintained one. No args.
+ * match the actual top-level test() registrations in tests/*.test.mjs. No
+ * args.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
