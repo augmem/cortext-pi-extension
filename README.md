@@ -300,9 +300,9 @@ drifts from `tests/*.test.mjs`); a GitHub Actions CI workflow
 runs typecheck, the full test chain, and `npm audit`.
 
 The engine-backed tests need the one-time on-device model (a pinned,
-sha256-verified 141 MB AIST GGUF plus tokenizer, downloaded from Hugging
-Face on first engine use and cached in the platform cache dir;
-`CORTEXT_MODEL_CACHE_DIR` overrides the location). On a fresh machine run
+sha256-verified 135 MB AIST GGUF plus tokenizer, fetched from Hugging
+Face and cached in the platform cache dir; `CORTEXT_MODEL_CACHE_DIR`
+overrides the location). On a fresh machine run
 `node scripts/ci-warm-model.mjs` once — CI does the same with a
 sha-keyed runner cache.
 
