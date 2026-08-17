@@ -70,7 +70,8 @@ export class InterruptGate {
     this.log("cortext gate: observing assistant message");
   }
 
-  onMessageUpdate(message: AgentMessage, streamEvent: AssistantMessageEvent): void {
+  onMessageUpdate(options: { message: AgentMessage; streamEvent: AssistantMessageEvent }): void {
+    const { message, streamEvent } = options;
     try {
       if (message.role !== "assistant") return;
       if (message !== this.current) {

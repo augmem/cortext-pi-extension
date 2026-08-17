@@ -353,6 +353,6 @@ export class CortextHandlers {
 
   onMessageUpdate(event: MessageUpdateEvent, ctx: ExtensionContext): void {
     this.scopeKey(ctx);
-    this.gate?.onMessageUpdate(event.message, event.assistantMessageEvent);
+    this.gate?.onMessageUpdate({ message: event.message, streamEvent: event.assistantMessageEvent });
   }
 }
