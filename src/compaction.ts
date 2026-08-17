@@ -113,7 +113,12 @@ export function estimateEntryTokens(entries: SessionEntry[]): number {
 export function messageTextLen(message: AgentMessage | undefined): number {
   if (!message) return 0;
   if (message.role === "user") {
-    return typeof message.content === "string" ? message.content.length : 0;
+    if (typeof message.content === "string") return message.content.length;
+    // pi allows a content-part array here (TextContent | ImageContent); count the
+    // text parts, mirroring messageText (image parts carry no text to estimate).
+    let n = 0;
+    for (const part of message.content) if (part.type === "text") n += part.text.length;
+    return n;
   }
   if (message.role === "assistant") {
     let n = 0;

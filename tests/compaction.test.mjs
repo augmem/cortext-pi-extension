@@ -126,6 +126,15 @@ test("messageTextLen handles every role", () => {
   assert.equal(messageTextLen({ role: "user", content: "abcd", timestamp: 1 }), 4);
   assert.equal(
     messageTextLen({
+      role: "user",
+      content: [{ type: "text", text: "abcd" }, { type: "image", data: "AAAA", mimeType: "image/png" }],
+      timestamp: 1,
+    }),
+    4,
+    "user content-array counts text parts only (mirrors messageText)",
+  );
+  assert.equal(
+    messageTextLen({
       role: "assistant",
       content: [{ type: "text", text: "ab" }, { type: "toolCall", id: "c", name: "bash", arguments: { a: 1 } }],
       timestamp: 1,
