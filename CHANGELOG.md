@@ -2,22 +2,6 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
-
-- Config boundary now type-validates every field with per-field default
-  fallback.
-- Engine-open failure degrades the affected scope to recall-less passthrough
-  with a first-failure log line; the agent keeps running.
-- OTEL spans on control/failure paths via `@opentelemetry/api` (no-op
-  without a collector); span attributes are bounded enums/numbers only.
-- Owned multi-arg and boolean signatures converted to named-options objects.
-- NOTICE rewritten for the actual npm distribution (two runtime dependencies,
-  `@augmem/cortext` and `@opentelemetry/api`; no vendored third-party code).
-- README documents the `fromHook` CompactionEntry field and the
-  engine-open failure / telemetry behavior.
-- `npm test` build-reproducibility gate (`npm run build:verify`) and a
-  GitHub Actions CI workflow (typecheck, full test chain, `npm audit`).
-
 ## 0.1.0
 
 - Initial release: port of the Cortext OpenClaw plugin to the pi coding agent
@@ -40,3 +24,21 @@ All notable changes to this project are documented here.
 - Config via `CORTEX_PI_CONFIG` env (JSON) or `~/.pi/agent/cortext/config.json`.
 - Unit tests (native engine, offline) plus a live bench (`bench/live.mjs`)
   driving a real `pi --mode rpc` session in an isolated temp project.
+- Review-remediation wave (shipped in the first public 0.1.0, verified by
+  nine rounds of adversarial multi-lane self-review):
+  - Config boundary type-validates every field with per-field default
+    fallback; rejected keys are reported by name only.
+  - Engine-open failure degrades the affected scope to recall-less
+    passthrough with a first-failure log line; the agent keeps running.
+  - OTEL spans on control/failure paths via `@opentelemetry/api` (no-op
+    without a collector); span attributes are bounded enums/numbers only.
+  - Owned multi-arg and boolean signatures converted to named-options
+    objects (incl. `InterruptGate.onMessageUpdate`).
+  - NOTICE rewritten for the actual npm distribution (two runtime
+    dependencies, `@augmem/cortext` and `@opentelemetry/api`; no vendored
+    third-party code).
+  - README documents the `fromHook` CompactionEntry field, the engine-open
+    failure / telemetry behavior, and the config reload contract.
+  - `npm test` gates: build-reproducibility (`build:verify`), dependency
+    inventory (`notice:verify`), README test count (`testcount:verify`);
+    GitHub Actions CI workflow (typecheck, full test chain, `npm audit`).
