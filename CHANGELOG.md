@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.1
+
+- Depend on `@augmem/cortext` `^1.3.3` (six-platform N-API prebuilds from
+  core `v1.3.3`, including the Windows MSVC/clang-cl addons).
+
 ## 0.1.0
 
 - Initial release: port of the Cortext OpenClaw plugin to the pi coding agent

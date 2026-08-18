@@ -31,7 +31,7 @@ export class CortextEngine {
     try {
       // Durable processText commits on its own: the write is immediately
       // visible to recall, even from a fresh handle on the same DB (verified
-      // empirically against @augmem/cortext 1.2.0). No per-message flush;
+      // empirically against @augmem/cortext 1.3.3). No per-message flush;
       // flush() remains only at deliberate checkpoints (compact/shutdown).
       return this.engine.processText(trimmed, options.sourceId, { retention: "durable" });
     } catch {
